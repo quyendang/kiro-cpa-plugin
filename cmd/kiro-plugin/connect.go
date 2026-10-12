@@ -107,6 +107,8 @@ func handleConnectAPI(req pluginapi.ManagementRequest) ([]byte, error) {
 	var token *kiroauth.KiroTokenData
 	var err error
 	switch method {
+	case "github":
+		return connectGitHubLogin(state)
 	case "builder-id":
 		return connectAPIDeviceLogin(state, method, builderStartURL, "us-east-1")
 	case "idc":

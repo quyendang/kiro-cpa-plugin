@@ -77,6 +77,7 @@ const loginShellBody = `<main>
     <fieldset class="methods">
       <legend class="sr" data-t="methodLabel">Authentication method</legend>
       <label class="method"><input type="radio" name="method" value="builder-id" checked><span data-t="m_builder-id">AWS Builder ID</span></label>
+      <label class="method"><input type="radio" name="method" value="github"><span data-t="m_github">GitHub</span></label>
       <label class="method"><input type="radio" name="method" value="idc"><span data-t="m_idc">IAM Identity Center</span></label>
       <label class="method"><input type="radio" name="method" value="api_key"><span data-t="m_api_key">API key</span></label>
       <label class="method"><input type="radio" name="method" value="refresh_token"><span data-t="m_refresh_token">Refresh token</span></label>
@@ -115,11 +116,15 @@ const loginShellText = `  var TEXT = {
       keyPrompt: 'Enter the CLIProxyAPI management key to add a Kiro account.',
       methodLabel: 'Authentication method',
       'm_builder-id': 'AWS Builder ID',
+      m_github: 'GitHub',
       m_idc: 'IAM Identity Center',
       m_api_key: 'API key',
       m_refresh_token: 'Refresh token',
       m_external_idp: 'External IDP JSON',
       'h_builder-id': 'Sign in to a personal AWS Builder ID with device authorization.',
+      h_github: 'Sign in with GitHub on Kiro’s device authorization page.',
+      githubIntro: 'Open the Kiro page, check the device code, and sign in with GitHub. CPA completes the sign-in automatically.',
+      openGitHub: 'Open Kiro GitHub sign-in',
       h_idc: 'Sign in to an organization through AWS IAM Identity Center.',
       h_api_key: 'The API key is validated against Kiro’s model catalog before it is saved.',
       h_refresh_token: 'Import AWS OIDC refresh material and its client registration.',
@@ -153,11 +158,15 @@ const loginShellText = `  var TEXT = {
       keyPrompt: 'Nhập management key của CLIProxyAPI để thêm tài khoản Kiro.',
       methodLabel: 'Phương thức xác thực',
       'm_builder-id': 'AWS Builder ID',
+      m_github: 'GitHub',
       m_idc: 'IAM Identity Center',
       m_api_key: 'API key',
       m_refresh_token: 'Refresh token',
       m_external_idp: 'External IDP JSON',
       'h_builder-id': 'Đăng nhập tài khoản AWS Builder ID cá nhân bằng mã thiết bị.',
+      h_github: 'Đăng nhập bằng GitHub trên trang xác thực thiết bị của Kiro.',
+      githubIntro: 'Mở trang Kiro, kiểm tra mã thiết bị rồi đăng nhập bằng GitHub. CPA sẽ tự hoàn tất đăng nhập.',
+      openGitHub: 'Mở đăng nhập GitHub của Kiro',
       h_idc: 'Đăng nhập tài khoản doanh nghiệp qua AWS IAM Identity Center.',
       h_api_key: 'API key được kiểm tra với danh sách model Kiro trước khi lưu.',
       h_refresh_token: 'Nhập bộ refresh token và thông tin client đã đăng ký với AWS OIDC.',
@@ -191,11 +200,15 @@ const loginShellText = `  var TEXT = {
       keyPrompt: '请输入 CLIProxyAPI 管理密钥以添加 Kiro 账户。',
       methodLabel: '认证方式',
       'm_builder-id': 'AWS Builder ID',
+      m_github: 'GitHub',
       m_idc: 'IAM Identity Center',
       m_api_key: 'API key',
       m_refresh_token: 'Refresh token',
       m_external_idp: 'External IDP JSON',
       'h_builder-id': '使用设备授权登录个人 AWS Builder ID。',
+      h_github: '在 Kiro 设备授权页面使用 GitHub 登录。',
+      githubIntro: '打开 Kiro 页面，核对设备代码，然后使用 GitHub 登录。CPA 会自动完成登录。',
+      openGitHub: '打开 Kiro GitHub 登录',
       h_idc: '通过 AWS IAM Identity Center 登录组织账户。',
       h_api_key: '保存前会使用 Kiro 模型目录验证 API key。',
       h_refresh_token: '导入 AWS OIDC refresh token 及客户端注册信息。',
@@ -226,7 +239,7 @@ const loginShellText = `  var TEXT = {
 `
 
 // loginShellLogic shows the fields of the chosen method, posts them to
-// /connect with the sign-in state, and shows the AWS link and device code or
+// /connect with the sign-in state, and shows the authorization link and device code or
 // the connected result.
 const loginShellLogic = `  // The sign-in state CPA issued travels in the fragment, so it never reaches
   // a server log; only the management-key POST to /connect carries it.
@@ -286,7 +299,7 @@ const loginShellLogic = `  // The sign-in state CPA issued travels in the fragme
         fields[index].hidden = !show;
       }
       setText(hint, t('h_' + current));
-      setText(submit, t(current === 'builder-id' || current === 'idc' ? 'authorize' : 'add'));
+      setText(submit, t(current === 'builder-id' || current === 'idc' || current === 'github' ? 'authorize' : 'add'));
     }
 
     // Rewriting a node's text replaces its text node. Doing that to the submit
@@ -335,7 +348,7 @@ const loginShellLogic = `  // The sign-in state CPA issued travels in the fragme
     }
 
     function showDevice(url, code) {
-      // The plugin validated the URL as an AWS authorization page; this only
+      // The plugin validated the URL as an AWS or Kiro authorization page; this only
       // refuses anything that is not https before it becomes a link.
       if (/^https:\/\//i.test(url)) {
         openLink.href = url;
@@ -345,7 +358,9 @@ const loginShellLogic = `  // The sign-in state CPA issued travels in the fragme
       document.getElementById('kiro-code-row').hidden = !code;
       document.getElementById('kiro-copy-code').hidden = !code;
       device.hidden = false;
-      finish(t('deviceIntro'));
+      var github = method() === 'github';
+      setText(openLink, t(github ? 'openGitHub' : 'openAWS'));
+      finish(t(github ? 'githubIntro' : 'deviceIntro'));
     }
 
     function copy(text) {

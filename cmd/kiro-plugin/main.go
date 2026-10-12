@@ -132,6 +132,9 @@ type loginFlow struct {
 	Attempts     int
 	Used         bool
 	Polling      bool
+	PollInterval time.Duration
+	NextPollAt   time.Time
+	Failure      string
 	ExpiresAt    time.Time
 }
 
@@ -506,6 +509,14 @@ func handleLoginPoll(raw []byte) ([]byte, error) {
 		loginFlowsMu.Unlock()
 		clearUsageCache()
 		return okEnvelope(pluginapi.AuthLoginPollResponse{Status: pluginapi.AuthLoginStatusSuccess, Message: defaultString(flow.Message, "Kiro credential connected"), Auth: authData(flow.Completed, "")})
+	}
+	if flow.Failure != "" {
+		loginFlowsMu.Unlock()
+		return okEnvelope(pluginapi.AuthLoginPollResponse{Status: pluginapi.AuthLoginStatusError, Message: flow.Failure})
+	}
+	if flow.AuthMethod == "social" {
+		loginFlowsMu.Unlock()
+		return pollGitHubLogin(req.State)
 	}
 	if flow.DeviceCode == "" {
 		loginFlowsMu.Unlock()
@@ -927,6 +938,9 @@ func kiroFileName(token *kiroauth.KiroTokenData) string {
 	if id == "" {
 		id = sanitize(token.ProfileArn)
 	}
+	if id == "" && method == "social" {
+		id = sanitize(token.Identity)
+	}
 	if len(id) > 24 {
 		id = id[:24]
 	}
@@ -956,6 +970,11 @@ func authMetadata(token *kiroauth.KiroTokenData) map[string]any {
 	}
 	metadata["type"] = providerName
 	setCredentialKeys(metadata, token)
+	// The OAuth identity provider is distinct from CPA's "kiro" provider key.
+	// The executor reconstructs its routing context from this metadata.
+	if token.Provider != "" {
+		metadata["provider"] = token.Provider
+	}
 	if isAPIKeyCredential(token) {
 		metadata["auth_kind"] = coreauth.AuthKindAPIKey
 	} else {

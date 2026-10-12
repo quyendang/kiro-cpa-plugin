@@ -99,7 +99,7 @@ func TestLoginPageOffersEveryConnectMethod(t *testing.T) {
 	for _, match := range regexp.MustCompile(`name="method" value="([a-z_-]+)"`).FindAllStringSubmatch(loginShellBody, -1) {
 		offered = append(offered, match[1])
 	}
-	if strings.Join(offered, ",") != "builder-id,idc,api_key,refresh_token,external_idp" {
+	if strings.Join(offered, ",") != "builder-id,github,idc,api_key,refresh_token,external_idp" {
 		t.Fatalf("methods offered = %v", offered)
 	}
 	for _, method := range offered {

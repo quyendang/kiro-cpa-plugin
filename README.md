@@ -4,7 +4,7 @@ Standalone native cross-platform plugin that connects CLIProxyAPI to Kiro accoun
 
 The plugin:
 
-- supports AWS Builder ID, IAM Identity Center, API-key credentials, refresh-token import, and CLIProxyAPI `external_idp` import;
+- supports GitHub sign-in, AWS Builder ID, IAM Identity Center, API-key credentials, refresh-token import, and CLIProxyAPI `external_idp` import;
 - discovers the Kiro profile with the access token of each account;
 - keeps Identity Center registrations isolated;
 - loads only the models available to the authenticated account;
@@ -65,6 +65,14 @@ Restart CLIProxyAPI and open the OAuth page in the Management Center. Every sign
 Both paths submit the method to the same authenticated `POST /v0/management/plugins/kiro/connect` route, so API keys, refresh tokens and imported JSON only travel through CPA's Management API. The sign-in page is a static shell like the Usage page: it reads the key the Management Center keeps when it signs in with “Remember password” ticked, or asks for it and holds it in memory only. The sign-in state that `StartLogin` issues travels in the URL fragment, which the browser never sends to the server. The page must be served from the same origin as the Management Center, which is the case when CPA serves `management.html` itself.
 
 Builder ID and IAM Identity Center use Kiro CLI's remote device flow, so they also work in containers and on hosts without a browser. The sign-in page or the fork's Kiro card displays only the real AWS verification URL and device code. The plugin identifies itself as the pinned Kiro CLI version and reports the real operating system and architecture; it does not fabricate a machine identifier or depend on Windows `MachineGuid`.
+
+### GitHub sign-in
+
+In the Management Center, press `Start Kiro Login`, open the returned link, choose `GitHub`, and press `Start authorization`. Open the Kiro verification page, check its device code, and sign in with GitHub. Keep the CPA OAuth page open: its existing polling finishes the login and saves the account. No Kiro IDE, localhost callback, or pasted callback URL is required. An inline Management Center fork needs to offer the `github` method or open the plugin's sign-in page; its UI lives in a separate repository.
+
+The flow follows OmniRoute's [social authorization route](https://github.com/diegosouzapw/OmniRoute/blob/7f3cbb046b3706bf0bbc047b7eaa0cbada8d9e50/src/app/api/oauth/kiro/social-authorize/route.ts) and [social exchange route](https://github.com/diegosouzapw/OmniRoute/blob/7f3cbb046b3706bf0bbc047b7eaa0cbada8d9e50/src/app/api/oauth/kiro/social-exchange/route.ts): Kiro's desktop auth service receives `clientId: kiro-cli` and `loginProvider: Github` at `/oauth/device/authorization`, then `/oauth/device/poll` exchanges the server-held device code. The plugin observes the returned expiry and polling interval, retains `slow_down` increases, and prevents overlapping exchanges. Verification links are restricted to `https://app.kiro.dev/account/device`.
+
+GitHub accounts persist as ordinary CPA OAuth Authentication Files with `authMethod: social` and `provider: Github`. They share model discovery, reasoning capabilities, streaming, tools, usage/quota, account toggles, request pacing and CPA failover with the other credential types. Refresh is scheduled by CPA and calls Kiro's `https://prod.us-east-1.auth.desktop.kiro.dev/refreshToken`, rather than AWS SSO OIDC. Rotated tokens retain the account identity, existing filename and host-owned settings. Kiro credentials, device codes and tokens stay on the server; only the verification URL and user code are returned to the sign-in page.
 
 The plugin stores credentials through the CLIProxyAPI authentication mechanism. Do not put passwords, management keys, access tokens, refresh tokens, or client secrets in the configuration or repository.
 
